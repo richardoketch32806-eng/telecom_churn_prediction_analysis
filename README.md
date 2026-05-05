@@ -1,4 +1,4 @@
-##  Overview
+#  OVERVIEW
 
 Customer churn — when a subscriber cancels their service — is one of the most costly problems in the telecommunications industry. Acquiring a new customer costs **five to seven times more** than retaining an existing one. Even a modest improvement in identifying at-risk customers before they leave has a direct, measurable impact on revenue.
 
