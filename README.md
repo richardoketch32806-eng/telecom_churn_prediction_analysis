@@ -224,3 +224,63 @@ The top 3 features (day minutes, service calls, international plan) account for 
 | `visual_12_pr_curve.png` | Precision-recall curve — M5 RF |
 | `visual_13_feature_importance_lollipop.png` | Feature importances — lollipop chart |
 | `visual_14_feature_importance_treemap.png` | Feature importances — treemap |
+### 5.2 Business Recommendations
+
+**Recommendation 1 — Auto-Flag After the 3rd Service Call (Immediate)**
+Churn jumps from ~11% to ~52% at 4+ calls. Route any customer logging a 3rd call to a senior retention agent before the 4th call occurs. This is a business rule — no model required to deploy it today.
+
+**Recommendation 2 — Rate Cap Loyalty Offer for Heavy Daytime Users (Within 30 Days)**
+Customers above the 75th percentile in daytime usage (> 216 min/day) are simultaneously your highest-value and highest-risk segment. Proactively offering a price guarantee removes the primary financial stressor driving their departure.
+
+**Recommendation 3 — Audit the International Plan + Offer Voicemail as Incentive (Within 60 Days)**
+42.4% of international plan holders churn — nearly 4× the base rate. Benchmark pricing against competitors and conduct exit interviews. Separately, offer the voicemail plan free as a trial to at-risk segments: holders churn at half the rate of non-holders.
+
+### 5.3 Model Limitations
+
+1. **27.8% of churners still missed** — recall of 72.2% means 1 in 4 churners are not flagged. The threshold can be lowered to catch more, but increases false positives and outreach cost.
+2. **No demographic or contract data** — age, income, and contract type are known churn drivers but absent. Adding them is the highest-value next step.
+3. **No timestamps — static snapshot** — the model cannot detect seasonal patterns or model churn as a time-to-event problem.
+4. **Static model** — must be retrained as customer behaviour and competitive dynamics change. Quarterly retraining recommended.
+5. **45% false positive rate among flagged** — budget approximately 0.8 non-churners contacted per genuine churner flagged.
+
+### 5.4 Deployment Plan
+
+| Phase | Timeline | Action |
+|---|---|---|
+| Phase 1 | Weeks 1–2 | Deploy weekly scoring pipeline to CRM; export priority-ranked at-risk list; set operating threshold with retention team |
+| Phase 2 | Month 1–2 | Run A/B test — hold out a random control group; measure revenue retained vs outreach cost; tune threshold based on team capacity |
+| Phase 3 | Quarterly | Retrain on newest data; add contract type and demographic features; target recall above 80% |
+
+---
+
+## 6. Repository Structure
+
+```
+├── churn_telecoms_dataset.csv              # Raw dataset
+├── churn_telecoms_cleaned.csv              # Model-ready dataset (post-preparation)
+├── telecom_churn_analysis_notebook.ipynb  # Full analysis notebook
+├── README.md                              # This file
+├── presentation.pdf                       # Non-technical slide deck
+└── .gitignore
+```
+
+| Tool | Purpose |
+|---|---|
+| Python 3 | Core language |
+| pandas / NumPy | Data manipulation |
+| Matplotlib / Seaborn | Visualisation |
+| scikit-learn | Modelling, evaluation, GridSearchCV |
+| squarify | Treemap visualisation |
+
+---
+
+## 7. Contributors
+
+| Contributor | GitHub |
+|---|---|
+| Richard Oketch | [@richardoketch32806-eng](https://github.com/richardoketch32806-eng) |
+
+---
+
+*This README is the analytical bridge between the non-technical presentation slides and the full Jupyter Notebook. It does not reproduce code but provides the methodology, findings, and business context in depth. For implementation details, see `telecom_churn_analysis_notebook.ipynb`.*
+
