@@ -1,6 +1,14 @@
 # Customer Churn Prediction — Project Summary
 
-## Overview
+**Author**: Richard Duncan oketch
+
+**Dataset**: churn_telecoms_dataset.csv
+
+**Date**: May 2026
+
+**Notebook**: `telecom_churn_analysis_notebook.ipynb`
+
+## OVERVIEW
 
 This project builds and evaluates machine learning models to predict customer churn for a telecommunications provider. The dataset contains **3,333 customers**, of whom **483 (14.5%) churned** and **2,850 (85.5%) were retained**. The goal is to identify at-risk customers early enough to enable proactive retention efforts.
 
