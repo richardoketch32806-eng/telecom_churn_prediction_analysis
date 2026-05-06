@@ -1,0 +1,140 @@
+name: Model Quality Gate
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+# Only runs when files that affect model results actually change
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - "telecom_churn_analysis_notebook.ipynb"
+      - "churn_telecoms_dataset.csv"
+      - "requirements.txt"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "telecom_churn_analysis_notebook.ipynb"
+      - "churn_telecoms_dataset.csv"
+  workflow_dispatch:
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  model-quality:
+    name: Assert Model Metrics Meet Thresholds
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Inline quality-gate script — trains M5 Random Forest from scratch
+      # and asserts the four business-critical metric thresholds.
+      # Mirrors the exact pipeline from Phase 3–5 of the notebook.
+      - name: Run model quality checks
+        run: |
+          python3 << 'PYEOF'
+          import sys, json, warnings
+          import pandas as pd
+          import numpy as np
+          from sklearn.ensemble import RandomForestClassifier
+          from sklearn.model_selection import train_test_split
+          from sklearn.preprocessing import StandardScaler
+          from sklearn.metrics import (
+              recall_score, f1_score, precision_score, roc_auc_score
+          )
+          warnings.filterwarnings("ignore")
+
+          # ── Minimum acceptable thresholds (from notebook Phase 5 results) ──
+          THRESHOLDS = {
+              "test_recall":    0.65,   # primary — catch as many churners as possible
+              "test_f1":        0.55,   # balance recall vs precision
+              "test_auc":       0.85,   # ranking quality at every threshold
+              "test_precision": 0.40,   # minimum signal quality for retention team
+          }
+          RANDOM_STATE = 42
+
+          # ── Phase 3: Data Preparation (mirrors notebook exactly) ────────────
+          df = pd.read_csv("churn_telecoms_dataset.csv")
+          drop_cols = [
+              "phone number", "state", "area code",
+              "total day charge", "total eve charge",
+              "total night charge", "total intl charge",
+          ]
+          df = df.drop(columns=drop_cols)
+          df["international plan"] = (df["international plan"] == "yes").astype(int)
+          df["voice mail plan"]    = (df["voice mail plan"]    == "yes").astype(int)
+          df["churn"]              = df["churn"].astype(int)
+
+          X = df.drop(columns=["churn"])
+          y = df["churn"]
+
+          X_train, X_test, y_train, y_test = train_test_split(
+              X, y, test_size=0.2, random_state=RANDOM_STATE, stratify=y
+          )
+
+          # ── Phase 4: Model M5 — Random Forest (Final Model) ─────────────────
+          rf = RandomForestClassifier(
+              n_estimators=200,
+              max_depth=5,
+              class_weight="balanced",
+              random_state=RANDOM_STATE,
+              n_jobs=-1,
+          )
+          rf.fit(X_train, y_train)
+          y_pred  = rf.predict(X_test)
+          y_proba = rf.predict_proba(X_test)[:, 1]
+
+          # ── Phase 5: Evaluate against thresholds ────────────────────────────
+          actual = {
+              "test_recall":    round(recall_score(y_test, y_pred),    4),
+              "test_f1":        round(f1_score(y_test, y_pred),        4),
+              "test_auc":       round(roc_auc_score(y_test, y_proba),  4),
+              "test_precision": round(precision_score(y_test, y_pred), 4),
+          }
+
+          print("=" * 58)
+          print("  Telecom Churn — Model Quality Gate (M5: Random Forest)")
+          print("=" * 58)
+          print(f"\n  {'Metric':<20} {'Actual':>8} {'Min':>8} {'Status':>8}")
+          print(f"  {'-'*48}")
+
+          results, passed = {}, True
+          for metric, threshold in THRESHOLDS.items():
+              value = actual[metric]
+              ok    = value >= threshold
+              if not ok:
+                  passed = False
+              status = "PASS ✓" if ok else "FAIL ✗"
+              results[metric] = {"actual": value, "threshold": threshold, "passed": ok}
+              print(f"  {metric:<20} {value:>8.4f} {threshold:>8.4f} {status:>8}")
+
+          print(f"  {'-'*48}")
+          print(f"\n  {'ALL CHECKS PASSED ✓' if passed else 'ONE OR MORE CHECKS FAILED ✗'}\n")
+
+          # Save machine-readable report for upload
+          report = {"metrics": results, "overall_passed": passed}
+          with open("model_quality_report.json", "w") as f:
+              json.dump(report, f, indent=2)
+          print("  Report saved → model_quality_report.json")
+
+          sys.exit(0 if passed else 1)
+          PYEOF
+
+      # Upload report regardless of pass/fail for audit trail
+      - name: Upload quality report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: model-quality-report-${{ github.run_number }}
+          path: model_quality_report.json
+          retention-days: 30

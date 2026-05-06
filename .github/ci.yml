@@ -1,0 +1,65 @@
+name: CI — Notebook Validation
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  validate-notebook:
+    name: Execute & Validate Notebook
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Python environment
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # 3. Install all dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Execute notebook top-to-bottom — fails if any cell raises an error
+      - name: Execute notebook end-to-end
+        run: |
+          jupyter nbconvert \
+            --to notebook \
+            --execute \
+            --ExecutePreprocessor.timeout=600 \
+            --ExecutePreprocessor.kernel_name=python3 \
+            --output executed_notebook.ipynb \
+            telecom_churn_analysis_notebook.ipynb
+        env:
+          MPLBACKEND: Agg   # non-interactive backend — no display needed in CI
+
+      # 5. Upload executed notebook so you can inspect failures
+      - name: Upload executed notebook artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: executed-notebook-${{ github.run_number }}
+          path: executed_notebook.ipynb
+          retention-days: 7
+
+      # 6. Confirm the cleaned CSV was exported by Phase 3 cell
+      - name: Verify cleaned dataset was exported
+        run: |
+          if [ ! -f churn_telecoms_cleaned.csv ]; then
+            echo "❌  churn_telecoms_cleaned.csv was not produced by the notebook"
+            exit 1
+          fi
+          ROWS=$(python3 -c "import pandas as pd; df=pd.read_csv('churn_telecoms_cleaned.csv'); print(len(df))")
+          COLS=$(python3 -c "import pandas as pd; df=pd.read_csv('churn_telecoms_cleaned.csv'); print(len(df.columns))")
+          echo "✅  churn_telecoms_cleaned.csv — ${ROWS} rows × ${COLS} columns"

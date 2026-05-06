@@ -1,0 +1,83 @@
+name: CD — Export Report & Deploy to GitHub Pages
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # allow manual trigger from the Actions tab
+
+# ── Permissions required for GitHub Pages deployment ──────────────────────────
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ── Only allow one Pages deployment at a time ─────────────────────────────────
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+
+  # ── Job 1: Execute notebook and build HTML report ────────────────────────────
+  build-report:
+    name: Build HTML Report
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Execute and convert notebook → HTML (hide code cells for non-tech audience)
+      - name: Export notebook to HTML report
+        run: |
+          mkdir -p ./site
+          jupyter nbconvert \
+            --to html \
+            --execute \
+            --ExecutePreprocessor.timeout=600 \
+            --ExecutePreprocessor.kernel_name=python3 \
+            --no-input \
+            --output index.html \
+            --output-dir ./site \
+            telecom_churn_analysis_notebook.ipynb
+        env:
+          MPLBACKEND: Agg
+
+      # Bundle supporting files so they are accessible from the Pages site
+      - name: Copy datasets into site
+        run: |
+          cp churn_telecoms_dataset.csv ./site/ 2>/dev/null || true
+          cp churn_telecoms_cleaned.csv ./site/ 2>/dev/null || true
+          cp README.md                  ./site/ 2>/dev/null || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  # ── Job 2: Deploy to GitHub Pages ───────────────────────────────────────────
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build-report
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

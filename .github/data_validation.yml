@@ -1,0 +1,207 @@
+name: Data Validation
+
+# ── Triggers ──────────────────────────────────────────────────────────────────
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - "churn_telecoms_dataset.csv"
+      - "churn_telecoms_cleaned.csv"
+  pull_request:
+    branches: [ main ]
+    paths:
+      - "*.csv"
+  workflow_dispatch:
+
+# ── Jobs ──────────────────────────────────────────────────────────────────────
+jobs:
+  validate-data:
+    name: Validate Dataset Integrity
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install pandas and numpy
+        run: |
+          python -m pip install --upgrade pip
+          pip install pandas numpy
+
+      # Inline validation script — checks schema, ranges, values, and class balance
+      # against the contract established in Phase 2 (Data Understanding) of the notebook
+      - name: Run data validation checks
+        run: |
+          python3 << 'PYEOF'
+          import sys, json
+          import pandas as pd
+
+          # ── Schema contract (from Phase 2: Data Understanding) ───────────────
+          EXPECTED_COLS = [
+              "state", "account length", "area code", "phone number",
+              "international plan", "voice mail plan", "number vmail messages",
+              "total day minutes", "total day calls", "total day charge",
+              "total eve minutes", "total eve calls", "total eve charge",
+              "total night minutes", "total night calls", "total night charge",
+              "total intl minutes", "total intl calls", "total intl charge",
+              "customer service calls", "churn",
+          ]
+
+          # Sensible ranges validated against EDA in notebook Phase 2
+          NUMERIC_RANGES = {
+              "account length":         (0,   500),
+              "number vmail messages":  (0,   60),
+              "total day minutes":      (0,   400),
+              "total day calls":        (0,   200),
+              "total eve minutes":      (0,   400),
+              "total eve calls":        (0,   200),
+              "total night minutes":    (0,   400),
+              "total night calls":      (0,   200),
+              "total intl minutes":     (0,   30),
+              "total intl calls":       (0,   25),
+              "customer service calls": (0,   10),
+          }
+
+          CATEGORICAL_VALUES = {
+              "international plan": {"yes", "no"},
+              "voice mail plan":    {"yes", "no"},
+              "area code":          {408, 415, 510},
+          }
+
+          # From EDA: 14.49% churn rate — allow ±5% tolerance
+          CHURN_RATE_MIN = 0.10
+          CHURN_RATE_MAX = 0.20
+          EXPECTED_ROWS  = 3333
+
+          results, passed = [], True
+
+          def check(desc, condition, detail=""):
+              nonlocal passed
+              ok = bool(condition)
+              if not ok:
+                  passed = False
+              status = "PASS ✓" if ok else "FAIL ✗"
+              msg = f"  [{status}] {desc}"
+              if not ok and detail:
+                  msg += f"\n           → {detail}"
+              print(msg)
+              return {"description": desc, "passed": ok, "detail": detail}
+
+          # ── Load raw dataset ─────────────────────────────────────────────────
+          try:
+              df = pd.read_csv("churn_telecoms_dataset.csv")
+          except FileNotFoundError:
+              print("  [FAIL ✗] churn_telecoms_dataset.csv not found")
+              sys.exit(1)
+
+          print("=" * 56)
+          print("  Telecom Churn — Data Validation")
+          print("=" * 56)
+          print(f"\n  Loaded: {df.shape[0]:,} rows × {df.shape[1]} columns\n")
+
+          # ── Checks ───────────────────────────────────────────────────────────
+          results.append(check(
+              f"Row count == {EXPECTED_ROWS:,}",
+              len(df) == EXPECTED_ROWS,
+              f"actual: {len(df):,}"
+          ))
+
+          missing_cols = [c for c in EXPECTED_COLS if c not in df.columns]
+          results.append(check(
+              "All 21 expected columns present",
+              len(missing_cols) == 0,
+              f"missing: {missing_cols}"
+          ))
+
+          nulls = df.isnull().sum().sum()
+          results.append(check(
+              "Zero missing values",
+              nulls == 0,
+              f"{nulls} null values found"
+          ))
+
+          for col, (lo, hi) in NUMERIC_RANGES.items():
+              if col in df.columns:
+                  bad = ((df[col] < lo) | (df[col] > hi)).sum()
+                  results.append(check(
+                      f"'{col}' in range [{lo}, {hi}]",
+                      bad == 0,
+                      f"{bad} out-of-range values"
+                  ))
+
+          for col, valid in CATEGORICAL_VALUES.items():
+              if col in df.columns:
+                  unexpected = set(df[col].unique()) - valid
+                  results.append(check(
+                      f"'{col}' contains only {sorted(valid)}",
+                      len(unexpected) == 0,
+                      f"unexpected values: {unexpected}"
+                  ))
+
+          if "churn" in df.columns:
+              rate = df["churn"].mean()
+              results.append(check(
+                  f"Churn rate between {CHURN_RATE_MIN:.0%}–{CHURN_RATE_MAX:.0%}",
+                  CHURN_RATE_MIN <= rate <= CHURN_RATE_MAX,
+                  f"actual rate: {rate:.2%}"
+              ))
+
+          if "phone number" in df.columns:
+              dupes = df["phone number"].duplicated().sum()
+              results.append(check(
+                  "No duplicate phone numbers",
+                  dupes == 0,
+                  f"{dupes} duplicates found"
+              ))
+
+          # ── Cleaned dataset checks (if present) ──────────────────────────────
+          try:
+              df_clean = pd.read_csv("churn_telecoms_cleaned.csv")
+              results.append(check(
+                  "Cleaned dataset has 14 columns (7 dropped)",
+                  len(df_clean.columns) == 14,
+                  f"actual: {len(df_clean.columns)} columns"
+              ))
+              results.append(check(
+                  "Cleaned dataset has same row count as raw",
+                  len(df_clean) == len(df),
+                  f"clean={len(df_clean)}, raw={len(df)}"
+              ))
+              results.append(check(
+                  "No charge columns remain in cleaned dataset",
+                  not any("charge" in c for c in df_clean.columns),
+                  "charge columns should have been dropped"
+              ))
+          except FileNotFoundError:
+              print("  [SKIP] churn_telecoms_cleaned.csv not found — skipping cleaned checks")
+
+          # ── Summary ──────────────────────────────────────────────────────────
+          n_passed = sum(r["passed"] for r in results)
+          n_total  = len(results)
+          print(f"\n  {n_passed}/{n_total} checks passed")
+          print(f"  {'ALL CHECKS PASSED ✓' if passed else 'ONE OR MORE CHECKS FAILED ✗'}\n")
+
+          report = {
+              "checks": results,
+              "summary": {"passed": n_passed, "total": n_total, "overall_passed": passed}
+          }
+          with open("data_validation_report.json", "w") as f:
+              json.dump(report, f, indent=2)
+          print("  Report saved → data_validation_report.json")
+
+          sys.exit(0 if passed else 1)
+          PYEOF
+
+      - name: Upload validation report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: data-validation-report-${{ github.run_number }}
+          path: data_validation_report.json
+          retention-days: 14
