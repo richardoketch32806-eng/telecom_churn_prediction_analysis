@@ -1,155 +1,214 @@
-# Telecom Churn Prediction Analysis
+# Customer Churn Prediction — Project Summary
 
 ## Overview
-Customer churn is a major challenge in the telecom industry. This project uses machine learning to predict which customers are likely to leave, enabling proactive retention strategies.
 
-**Objective:** Build a predictive model and generate actionable insights to reduce churn and improve business performance.
-
----
-
-## Business and Data Understanding
-
-### Business Problem
-- 14.5% annual churn rate
-- High cost of acquiring new customers
-- No system to identify at-risk customers early
-
-### Dataset
-- 3,333 customers
-- 21 features
-- Target: Churn (Yes/No)
+This project builds and evaluates machine learning models to predict customer churn for a telecommunications provider. The dataset contains **3,333 customers**, of whom **483 (14.5%) churned** and **2,850 (85.5%) were retained**. The goal is to identify at-risk customers early enough to enable proactive retention efforts.
 
 ---
 
-## Exploratory Data Analysis (EDA)
+## Dataset Summary
 
-### Churn Distribution
-![Churn Rate](visual_01_waffle_churn_rate.png)
-
-- Shows class imbalance
-- Majority of customers do not churn
-
----
-
-### Usage Patterns
-![Usage Distribution](visual_02_kde_usage_distributions.png)
-
-- High usage customers more likely to churn
+| Metric | Value |
+|---|---|
+| Total customers | 3,333 |
+| Churned | 483 (14.5%) |
+| Retained | 2,850 (85.5%) |
+| Class imbalance | ~6:1 (retained:churned) |
 
 ---
 
-### Feature Relationships
-![Violin Plots](visual_03_violin_plots.png)
+## Exploratory Data Analysis
 
-![Service Calls](visual_04_strip_service_calls.png)
+### Churn Rate (`visual_01_waffle_churn_rate.png`)
+A waffle chart where each square represents 1% of customers. 14.5% of the customer base churned — manageable but commercially significant given acquisition costs.
 
-- Customers with more service calls churn more
+### Feature Distributions — KDE (`visual_02_kde_usage_distributions.png`)
+Kernel density plots comparing churned vs retained customers across six features:
+
+- **Total Day Minutes**: Churned customers average 206.9 min vs 175.2 for retained — the clearest distributional gap of any usage feature.
+- **Total Evening Minutes**: Slight churn shift (212.4 vs 199.0).
+- **Total Night Minutes**: Nearly identical distributions (205.2 vs 200.1) — low predictive value.
+- **Total International Minutes**: Minimal difference (10.7 vs 10.2).
+- **Customer Service Calls**: Churned customers average 2.2 calls vs 1.4 for retained. The churned distribution has a heavy right tail — a key churn signal.
+- **Account Length**: Virtually identical — tenure alone does not predict churn.
+
+### Violin Plots — Usage by Time of Day (`visual_03_violin_plots.png`)
+Split violins confirm that Day and Evening usage show meaningful distributional shifts between churned and retained groups. Night and International usage are nearly symmetric — those periods contribute little signal.
+
+### Customer Service Calls vs Churn Rate (`visual_04_strip_service_calls.png`)
+The most actionable finding in the EDA:
+
+| Service Calls | Churn Rate |
+|---|---|
+| 0 | 13% |
+| 1 | 10% |
+| 2 | 11% |
+| 3 | 10% |
+| 4 | **46%** |
+| 5 | **61%** |
+| 6 | **64%** |
+| 7 | **56%** |
+| 8 | **50%** |
+| 9 | **100%** |
+
+Customers with 4+ service calls enter a high-risk zone where churn probability exceeds 46%. This threshold is a strong, actionable rule for early intervention.
+
+### Pair Plot — Top Predictive Features (`visual_05_pair_plot.png`)
+Pairwise scatter plots of the four most predictive features: total day minutes, customer service calls, total international minutes, and number of voicemail messages. Churned customers cluster at higher day minutes and service call values. Voicemail message count shows a bimodal retained distribution — likely reflecting voicemail plan adoption.
+
+### Correlation Heatmap (`visual_06_correlation_heatmap.png`)
+Key correlations with churn:
+- **Day Minutes / Day Charge**: r = 0.21 (redundant — charge is a linear function of minutes)
+- **Evening Minutes / Eve Charge**: r = 0.21 (same redundancy)
+- **Customer Service Calls**: r = 0.21
+- **International Plan**: r = 0.26
+- **Voice Mail Plan**: r = −0.10 (slight protective effect)
+- **Voicemail Messages ↔ VM Plan**: r = 0.96 — these two features are nearly collinear
+
+Feature-to-feature correlations are otherwise very low, indicating minimal multicollinearity.
 
 ---
 
-### Multivariate Analysis
-![Pair Plot](visual_05_pair_plot.png)
+## Models
 
-![Correlation Heatmap](visual_06_correlation_heatmap.png)
+Five models were trained and evaluated. The business target was **recall ≥ 0.70** on the test set, prioritising the detection of churners over precision.
 
-- Identifies relationships between variables
-- Helps guide feature selection
+### M1: Logistic Regression (Baseline)
+- Default settings, no class-weight adjustment
+- **Test Recall: 0.247** — misses 73 of 97 churners
+- Precision is decent but the model is heavily biased toward the majority class
+
+### M2: Logistic Regression (Balanced, Tuned)
+- Class weights balanced, threshold tuned
+- **Test Recall: 0.742** ✓ — meets the business target
+- Trade-off: 136 false positives (non-churners flagged)
+- Train/test recall gap of only 0.022 — well generalised
+
+### M3: Decision Tree (Baseline)
+- Default max depth
+- **Test Recall: 0.649** — just below target
+- Train recall = 1.000 — severe overfitting (gap = 0.351)
+
+### M4: Decision Tree (Tuned)
+- Depth and leaf-size regularised
+- **Test Recall: 0.742** ✓ — meets the business target
+- AUC = 0.833, better than both LR models
+- Train/test gap reduced to 0.196, though still notable
+
+### M5: Random Forest — Final Model ✅
+- Ensemble of regularised trees
+- **Test Recall: 0.722** ✓
+- **AUC: 0.882** — highest of all models
+- Train recall = 0.859, gap = 0.130 — best generalisation of the tree-based models
+- Average Precision (PR-AUC): 0.711
 
 ---
 
-## Data Preparation
-
-- No missing values
-- Encoded categorical variables
-- Scaled numerical features
-- Selected relevant predictors
-
----
-
-## Modeling
-
-### Models Tested
-- Logistic Regression (Baseline & Tuned)
-- Decision Tree (Baseline & Tuned)
-- Random Forest (Final Model)
-
----
-
-## Model Evaluation
+## Model Comparison
 
 ### Confusion Matrices
-![M1](visual_07a_m1_confusion_matrix.png)
-![M2](visual_07b_m2_confusion_matrix.png)
-![M3](visual_07c_m3_confusion_matrix.png)
-![M4](visual_07d_m4_confusion_matrix.png)
-![M5](visual_07e_m5_confusion_matrix.png)
+
+| Model | TN | FP | FN | TP | Recall | Precision |
+|---|---|---|---|---|---|---|
+| M1: LR Baseline | 549 | 21 | 73 | 24 | 0.247 | 0.533 |
+| M2: LR Balanced | 434 | 136 | 25 | 72 | 0.742 | 0.346 |
+| M3: DT Baseline | 540 | 30 | 34 | 63 | 0.649 | 0.677 |
+| M4: DT Tuned | 525 | 45 | 25 | 72 | 0.742 | 0.615 |
+| M5: RF Final | 512 | 58 | 27 | 70 | **0.722** | **0.547** |
+
+### Recall Gap — Overfitting Comparison (`visual_09_dumbbell_recall_gap.png`)
+M5 Random Forest has the best balance: high test recall with the smallest train/test gap among tree-based models. M3 DT Baseline achieves perfect train recall but collapses on test data.
+
+### Radar Chart (`visual_10_radar_chart.png`)
+M5 RF dominates across F1, Recall, AUC, and Precision simultaneously. M2 LR Tuned achieves comparable recall but with much lower precision and AUC.
+
+### ROC Curves (`visual_11_roc_curves.png`)
+
+| Model | AUC |
+|---|---|
+| M5: RF Final | **0.882** |
+| M4: DT Tuned | 0.833 |
+| M1: LR Baseline | 0.817 |
+| M2: LR Tuned | 0.815 |
+| M3: DT Baseline | 0.798 |
+
+### Precision-Recall Curve — M5 RF (`visual_12_pr_curve.png`)
+At the default threshold of 0.50: Recall = 0.72, Precision = 0.55. Lowering the threshold can increase recall at the cost of precision — appropriate if retention outreach is low-cost.
 
 ---
 
-### Decision Tree Visualization
-![Decision Tree](visual_08_decision_tree.png)
+## Decision Tree Logic (`visual_08_decision_tree.png`)
+
+The tuned decision tree provides interpretable churn rules. Root split: **Total Day Minutes ≤ 244.95**.
+
+- High day minutes (> 244.95) → check **Voice Mail Plan**: customers without it skew toward churn
+- Low day minutes (≤ 244.95) → check **Customer Service Calls ≤ 3.5**:
+  - Low service calls → check **International Plan** (no intl plan = predominantly retained)
+  - High service calls (> 3.5) → near-certain churn territory regardless of other features
 
 ---
 
-### Model Comparison
-![Recall Gap](visual_09_dumbbell_recall_gap.png)
+## Feature Importances — M5 Random Forest
 
-![Radar Chart](visual_10_radar_chart.png)
+### Lollipop Chart (`visual_13_feature_importance_lollipop.png`) & Treemap (`visual_14_feature_importance_treemap.png`)
 
----
+| Rank | Feature | Importance |
+|---|---|---|
+| 1 | Total Day Minutes | 0.303 |
+| 2 | Customer Service Calls | 0.229 |
+| 3 | International Plan | 0.154 |
+| 4 | Total Evening Minutes | 0.062 |
+| 5 | Number Voicemail Messages | 0.050 |
+| 6 | Total International Minutes | 0.043 |
+| 7 | Total Night Minutes | 0.031 |
+| 8 | Voice Mail Plan | 0.031 |
+| — | All others | < 0.031 each |
 
-### ROC Curve
-![ROC Curve](visual_11_roc_curves.png)
-
----
-
-### Precision-Recall Curve
-![PR Curve](visual_12_pr_curve.png)
-
----
-
-## Feature Importance
-
-### Lollipop Chart
-![Feature Importance](visual_13_feature_importance_lollipop.png)
-
-### Treemap
-![Feature Importance Treemap](visual_14_feature_importance_treemap.png)
+The top 3 features (day minutes, service calls, international plan) account for ~69% of total model importance.
 
 ---
 
-## Key Insights
+## Key Business Insights
 
-- Customers with **high service calls** are most likely to churn  
-- **High daytime usage** increases churn risk  
-- **International plan users** show higher churn  
+1. **High day usage is the single biggest churn signal.** Customers using 250+ daytime minutes should be monitored and potentially offered a better rate plan.
 
----
+2. **Customer service calls ≥ 4 is a high-confidence churn trigger.** A real-time alert at the 4th call would catch roughly half of all churners before they leave.
 
-## Conclusion & Recommendations
+3. **International plan customers churn at a disproportionately high rate.** Review international plan pricing and satisfaction — this cohort needs targeted outreach.
 
-### Best Model
-- Random Forest
-- Recall: ~72%
-- AUC: 0.88
+4. **Voicemail plan has a weak protective effect.** Encouraging voicemail plan adoption may marginally reduce churn, but is not a primary lever.
+
+5. **Account tenure (length) has no predictive power.** Churn is driven by product/price friction, not how long someone has been a customer.
 
 ---
 
-### Business Recommendations
+## Selected Model: M5 Random Forest
 
-1. **Act after 3rd service call**
-2. **Target high-usage customers**
-3. **Review international plan pricing**
+**Why M5 was chosen over M4 (DT Tuned) which had equal recall:**
 
----
+- Higher AUC (0.882 vs 0.833) — better probability calibration across all thresholds
+- Lower overfitting gap (0.130 vs 0.196) — more reliable on unseen data
+- Higher average precision (PR-AUC 0.711) — better performance under class imbalance
 
-## Business Value
-
-- Enables proactive retention  
-- Reduces churn-related revenue loss  
-- Improves customer satisfaction  
+**Deployment recommendation:** Use M5 RF with a threshold of ~0.40–0.45 if the business wants to increase recall above 0.72, accepting proportionally more false positives. At the current 0.50 threshold, roughly 1 in 2 flagged customers is a true churner — a strong signal for targeted retention campaigns.
 
 ---
 
-## Project Structure
+## File Index
 
+| File | Description |
+|---|---|
+| `visual_01_waffle_churn_rate.png` | Overall churn rate waffle chart |
+| `visual_02_kde_usage_distributions.png` | KDE distributions: churned vs retained |
+| `visual_03_violin_plots.png` | Usage by time of day — split violin plots |
+| `visual_04_strip_service_calls.png` | Service calls vs churn rate |
+| `visual_05_pair_plot.png` | Pair plot — top 4 predictive features |
+| `visual_06_correlation_heatmap.png` | Feature correlation heatmap |
+| `visual_07a–e_confusion_matrix.png` | Confusion matrices for M1–M5 |
+| `visual_08_decision_tree.png` | Tuned decision tree — top 3 levels |
+| `visual_09_dumbbell_recall_gap.png` | Train vs test recall gap by model |
+| `visual_10_radar_chart.png` | Multi-metric model comparison radar |
+| `visual_11_roc_curves.png` | ROC curves — all models |
+| `visual_12_pr_curve.png` | Precision-recall curve — M5 RF |
+| `visual_13_feature_importance_lollipop.png` | Feature importances — lollipop chart |
+| `visual_14_feature_importance_treemap.png` | Feature importances — treemap |
