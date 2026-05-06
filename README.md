@@ -19,10 +19,12 @@ This project builds and evaluates machine learning models to predict customer ch
 
 ## Exploratory Data Analysis
 
-### Churn Rate (`visual_01_waffle_churn_rate.png`)
+### Churn Rate 
+![Churn Rate](visuals/visual_01_waffle_churn_rate.png)
 A waffle chart where each square represents 1% of customers. 14.5% of the customer base churned — manageable but commercially significant given acquisition costs.
 
-### Feature Distributions — KDE (`visual_02_kde_usage_distributions.png`)
+### Feature Distributions — KDE
+![KDE Distributions](visuals/visual_02_kde_usage_distributions.png)
 Kernel density plots comparing churned vs retained customers across six features:
 
 - **Total Day Minutes**: Churned customers average 206.9 min vs 175.2 for retained — the clearest distributional gap of any usage feature.
@@ -32,10 +34,12 @@ Kernel density plots comparing churned vs retained customers across six features
 - **Customer Service Calls**: Churned customers average 2.2 calls vs 1.4 for retained. The churned distribution has a heavy right tail — a key churn signal.
 - **Account Length**: Virtually identical — tenure alone does not predict churn.
 
-### Violin Plots — Usage by Time of Day (`visual_03_violin_plots.png`)
+### Violin Plots — Usage by Time of Day 
+![Violin Plots](visuals/visual_03_violin_plots.png)
 Split violins confirm that Day and Evening usage show meaningful distributional shifts between churned and retained groups. Night and International usage are nearly symmetric — those periods contribute little signal.
 
-### Customer Service Calls vs Churn Rate (`visual_04_strip_service_calls.png`)
+### Customer Service Calls vs Churn Rate 
+![Service Calls](visuals/visual_04_strip_service_calls.png)
 The most actionable finding in the EDA:
 
 | Service Calls | Churn Rate |
@@ -53,10 +57,12 @@ The most actionable finding in the EDA:
 
 Customers with 4+ service calls enter a high-risk zone where churn probability exceeds 46%. This threshold is a strong, actionable rule for early intervention.
 
-### Pair Plot — Top Predictive Features (`visual_05_pair_plot.png`)
+### Pair Plot — Top Predictive Features 
+![Pair Plot](visuals/visual_05_pair_plot.png)
 Pairwise scatter plots of the four most predictive features: total day minutes, customer service calls, total international minutes, and number of voicemail messages. Churned customers cluster at higher day minutes and service call values. Voicemail message count shows a bimodal retained distribution — likely reflecting voicemail plan adoption.
 
-### Correlation Heatmap (`visual_06_correlation_heatmap.png`)
+### Correlation Heatmap
+![Correlation Heatmap](visuals/visual_06_correlation_heatmap.png)
 Key correlations with churn:
 - **Day Minutes / Day Charge**: r = 0.21 (redundant — charge is a linear function of minutes)
 - **Evening Minutes / Eve Charge**: r = 0.21 (same redundancy)
@@ -132,7 +138,7 @@ M5 RF dominates across F1, Recall, AUC, and Precision simultaneously. M2 LR Tune
 | M2: LR Tuned | 0.815 |
 | M3: DT Baseline | 0.798 |
 
-### Precision-Recall Curve — M5 RF (`visual_12_pr_curve.png`)
+### Precision-Recall Curve — M5 RF(`visual_12_pr_curve.png`)
 At the default threshold of 0.50: Recall = 0.72, Precision = 0.55. Lowering the threshold can increase recall at the cost of precision — appropriate if retention outreach is low-cost.
 
 ---
