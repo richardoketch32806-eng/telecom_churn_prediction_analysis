@@ -17,7 +17,7 @@ This project builds and evaluates machine learning models to predict customer ch
 
 ---
 
-## Exploratory Data Analysis
+## Data Analysis
 
 ### Churn Rate 
 ![Churn Rate](visuals/visual_01_waffle_churn_rate.png)
@@ -122,13 +122,16 @@ Five models were trained and evaluated. The business target was **recall ≥ 0.7
 | M4: DT Tuned | 525 | 45 | 25 | 72 | 0.742 | 0.615 |
 | M5: RF Final | 512 | 58 | 27 | 70 | **0.722** | **0.547** |
 
-### Recall Gap — Overfitting Comparison (`visual_09_dumbbell_recall_gap.png`)
+### Recall Gap — Overfitting Comparison
+![Dumbbell Recall Gap](visuals/visual_09_dumbbell_recall_gap.png)
 M5 Random Forest has the best balance: high test recall with the smallest train/test gap among tree-based models. M3 DT Baseline achieves perfect train recall but collapses on test data.
 
-### Radar Chart (`visual_10_radar_chart.png`)
+### Radar Chart 
+![Radar Chart](visuals/visual_10_radar_chart.png)
 M5 RF dominates across F1, Recall, AUC, and Precision simultaneously. M2 LR Tuned achieves comparable recall but with much lower precision and AUC.
 
-### ROC Curves (`visual_11_roc_curves.png`)
+### ROC Curves 
+![ROC Curves](visuals/visual_11_roc_curves.png)
 
 | Model | AUC |
 |---|---|
@@ -138,12 +141,14 @@ M5 RF dominates across F1, Recall, AUC, and Precision simultaneously. M2 LR Tune
 | M2: LR Tuned | 0.815 |
 | M3: DT Baseline | 0.798 |
 
-### Precision-Recall Curve — M5 RF(`visual_12_pr_curve.png`)
+### Precision-Recall Curve — M5 RF
+![Precision-Recall Curve](visuals/visual_12_pr_curve.png)
 At the default threshold of 0.50: Recall = 0.72, Precision = 0.55. Lowering the threshold can increase recall at the cost of precision — appropriate if retention outreach is low-cost.
 
 ---
 
-## Decision Tree Logic (`visual_08_decision_tree.png`)
+## Decision Tree Logic
+![Decision Tree](visuals/visual_08_decision_tree.png)
 
 The tuned decision tree provides interpretable churn rules. Root split: **Total Day Minutes ≤ 244.95**.
 
@@ -156,8 +161,9 @@ The tuned decision tree provides interpretable churn rules. Root split: **Total 
 
 ## Feature Importances — M5 Random Forest
 
-### Lollipop Chart (`visual_13_feature_importance_lollipop.png`) & Treemap (`visual_14_feature_importance_treemap.png`)
-
+### Lollipop Chart 
+![Feature Importance Lollipop](visuals/visual_13_feature_importance_lollipop.png) & Treemap 
+![Feature Importance Treemap](visuals/visual_14_feature_importance_treemap.png)
 | Rank | Feature | Importance |
 |---|---|---|
 | 1 | Total Day Minutes | 0.303 |
