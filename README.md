@@ -260,7 +260,7 @@ Customers above the 75th percentile in daytime usage (> 216 min/day) are simulta
 ├── churn_telecoms_cleaned.csv              # Model-ready dataset (post-preparation)
 ├── telecom_churn_analysis_notebook.ipynb  # Full analysis notebook
 ├── README.md                              # This file
-├── presentation.pdf                       # Non-technical slide deck
+├── Telecom_Churn_Presentation_Final.pdf                       # Non-technical slide deck
 └── .gitignore
 ```
 
