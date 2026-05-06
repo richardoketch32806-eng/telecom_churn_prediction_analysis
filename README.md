@@ -224,6 +224,7 @@ The top 3 features (day minutes, service calls, international plan) account for 
 | `visual_12_pr_curve.png` | Precision-recall curve — M5 RF |
 | `visual_13_feature_importance_lollipop.png` | Feature importances — lollipop chart |
 | `visual_14_feature_importance_treemap.png` | Feature importances — treemap |
+
 ### 5.2 Business Recommendations
 
 **Recommendation 1 — Auto-Flag After the 3rd Service Call (Immediate)**
